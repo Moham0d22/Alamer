@@ -54,21 +54,23 @@ router.post('/login', async (req, res) => {
 // One-time route to seed admin user in DB
 router.post('/seed-admin', async (req, res) => {
   try {
-    const existing = await User.findOne({ name: 'alamer', role: 'admin' });
-    if (existing) {
-      return res.json({ success: true, message: 'Admin user already exists', userId: existing._id });
-    }
+    let admin = await User.findOne({ name: 'alamer', role: 'admin' });
 
-    const admin = new User({
-      name: 'alamer',
-      email: 'admin@alamer.com',
-      password: 'alamer135@#$%',
-      role: 'admin'
-    });
+    if (!admin) {
+      admin = new User({
+        name: 'alamer',
+        email: 'admin@alamer.com',
+        password: 'alamer135@#$%',
+        role: 'admin'
+      });
+    } else {
+      // Reset admin password if admin already exists
+      admin.password = 'alamer135@#$%';
+    }
 
     await admin.save();
 
-    res.json({ success: true, message: 'Admin user created', userId: admin._id });
+    res.json({ success: true, message: 'Admin user ensured/updated', userId: admin._id });
   } catch (error) {
     console.error('Seed admin error:', error);
     res.status(500).json({ success: false, message: 'فشل إنشاء مستخدم الأدمن' });
