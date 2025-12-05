@@ -107,8 +107,14 @@ exports.getOrderStats = async (req, res) => {
     const totalOrders = await Order.countDocuments();
     const paidOrders = await Order.countDocuments({ paymentStatus: 'paid' });
     const aggregate = await Order.aggregate([
+      {
+        $match: {
+          status: { $in: ['confirmed', 'shipped', 'delivered'] }
+        }
+      },
       { $group: { _id: null, revenue: { $sum: '$totalAmount' } } }
     ]);
+
     const totalRevenue = aggregate[0]?.revenue || 0;
     const totalProducts = await Product.countDocuments({ active: true });
 
@@ -121,6 +127,53 @@ exports.getOrderStats = async (req, res) => {
         totalProducts
       }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+exports.updateOrderStatus = async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ success: false, message: 'غير مصرح' });
+    }
+
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'حالة الطلب غير صحيحة' });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    }
+
+    order.status = status;
+    await order.save();
+
+    res.json({ success: true, data: order });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+exports.deleteOrder = async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ success: false, message: 'غير مصرح' });
+    }
+
+    const { id } = req.params;
+    const order = await Order.findByIdAndDelete(id);
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    }
+
+    res.json({ success: true, message: 'تم حذف الطلب بنجاح' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
